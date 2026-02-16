@@ -1,479 +1,252 @@
-<html lang="en-us"><script src="https://pygame-web.github.io/archives/0.8/pythons.js" type=module id="site" data-python="cpython3.11" data-os="vtx,fs,snd,gui" async defer>#<!--
-
-print("""
-Loading export_ready from export_ready.apk
-    Pygbag Version : 0.8.6
-    Template Version : 0.8.3
-    Python  : 3.11
-    CDN URL : https://pygame-web.github.io/archives/0.8/
-    Screen  : 1280x720
-    Title   : export_ready
-    Folder  : export_ready
-    Authors : pgw
-    SPDX-License-Identifier: cookiecutter.spdx
-
-""")
-
-
-# screen pixels (real, hardware)
-WIDTH=1024  # 1280
-HEIGHT=600  # 720
-
-# reference/idealized screen pixels
-REFX = 1980
-REFY = 1080
-
-def u(real, ref, v):
-    if abs(v)<0.9999999:
-        result = int( (float(real)/100.0) * (v*1000))
-        if v<0:
-            return real-result
-        return result
-    return int( (real/ref) * v )
-
-def ux(*argv):
-    global WIDTH, REFX
-    acc = 0
-    for v in argv:
-        acc += u(WIDTH, REFX, v)
-    return acc
-
-def uy(*argv):
-    global HEIGHT, REFY
-    acc = 0
-    for v in argv:
-        acc += u(HEIGHT, REFY, v)
-    return acc
-
-
-
-
-# do not rename
-async def custom_site():
-
-    import sys
-    import asyncio
-    import platform
-    import json
-    from pathlib import Path
-
-
-
-    import embed
-
-
-    platform.document.body.style.background = "#7f7f7f"
-
-    import pygame
-
-    def compose():
-        pygame.display.update()
-        window.chromakey(None, *screen.get_colorkey(), 40)
-
-    pygame.init()
-    pygame.font.init()
-
-    screen = pygame.display.set_mode([ux(.100),uy(.100)], pygame.SRCALPHA, 32)
-    screen.set_colorkey( (0,0,0,0), pygame.RLEACCEL )
-    screen.fill( (0,0,0,0) )
-
-    compose()
-
-    platform.window.transfer.hidden = true
-    platform.window.canvas.style.visibility = "visible"
-
-
-
-    apk = "export_ready.apk"
-
-    bundle = "export_ready"
-
-    # the C or js loader could do that but be explicit.
-    appdir = Path(f"/data/data/{bundle}") # /data/data/export_ready
-    appdir.mkdir()
-
-
-    # mount apk
-
-    cfg = {
-        "io": "url",
-        "type":"mount",
-        "mount" : {
-            "point" : appdir.as_posix(),
-            "path" : "/",
-        },
-        "path" : f"/ => {appdir.as_posix()}",
-    }
-
-
-    track = platform.window.MM.prepare(apk, json.dumps(cfg))
-
-    marginx = ux(.020) # 20%
-    marginy = uy(.045) # 45%
-
-
-    def pg_bar(pos):
-        nonlocal marginx, marginy
-        # resolution of progress bar, recalculate since it may not be know yet.
-        total = track.len or 10  # avoid div0
-        slot = ux(.060)/ total # 60%
-
-        pygame.draw.rect(screen,(10,10,10),( marginx-ux(10), marginy-uy(10), (total*slot)+ux(20), uy(110) ) )
-        pygame.draw.rect(screen,(0,255,0), ( marginx, marginy, track.pos*slot, uy(90)) )
-
-    # wait until zip mount + overlayfs is complete
-    while not track.ready:
-        pg_bar(track.pos)
-        compose()
-        await asyncio.sleep(.1)
-
-    # fill it up in case it was cached and instant download
-    pg_bar(track.len)
-    compose()
-
-
-    # preloader will change dir and prepend it to sys.path
-    platform.run_main(PyConfig, loaderhome= appdir / "assets", loadermain=None)
-
-
-    # wait preloading complete
-    # that includes images and wasm compilation of bundled modules
-    while embed.counter()<0:
-        await asyncio.sleep(.1)
-
-    main = appdir / "assets" / "main.py"
-
-    # start async top level machinery and add a console.
-    await TopLevel_async_handler.start_toplevel(platform.shell, console=window.python.config.debug)
-
-    # now that apk is mounted we have access to font cache
-    # but we need to fill __file__ that is not yet set
-    __import__(__name__).__file__ = str(main)
-
-
-    # now make a prompt
-    fnt = pygame.sysfont.SysFont("freesans",  uy(80) )
-
-    def ui_callback(pkg, error=None):
-        nonlocal fnt
-        if error:
-            prompt = fnt.render(f"{error}", True, "black")
-        else:
-            prompt = fnt.render(f"Setting [{pkg}] up", True, "black")
-        pg_bar(track.len)
-        screen.blit(prompt, ( marginx+ ux(80), marginy - uy(10) ) )
-        compose()
-
-    # test/wait if user media interaction required
-    if not platform.window.MM.UME:
-
-        # now make a prompt
-        fnt = pygame.sysfont.SysFont("freesans",  uy(80) )
-        prompt = fnt.render("Ready to start !", True, "blue")
-        pg_bar(track.len)
-        screen.blit(prompt, ( marginx+ ux(80), marginy - uy(10) ) )
-        compose()
-        print("""
-        * Waiting for media user engagement : please click/touch page *
-    """)
-        while not platform.window.MM.UME:
-            await asyncio.sleep(.1)
-
-    # cleanup
-    screen.fill( (0,0,0,0) )
-    pygame.display.flip()
-
-    await shell.runpy(main, callback=ui_callback)
-
-
-
-import asyncio
-
-asyncio.run( custom_site() )
-
-
-
-
-
-
-
-
-
-
-
-
-# BEGIN BLOCK
-#
-# now this is the html part you can (and should) customize
-# It is not mandatory : pygame-script when it reads the first line (also called
-# shebang ) of above code create absolute minimal widget set
-# required for running with default rules
-#
-# do not alter that comment block it is separating python code from html code
-# =============================================================================
-# --></script><head><!--
-//=============================================================================
-//
-//
-//
-//
-//
-//
-//
-
-    {%- if cookiecutter.comment != "" -%}
-{{cookiecutter.comment}}
-    {% endif %}
-
---><script type="application/javascript">
-// END BLOCK
-
-
-
-// this dict is available under PyConfig.config from __main__
-
-config = {
-    xtermjs : "1" ,
-    _sdl2 : "canvas",
-    user_canvas : 0,
-    user_canvas_managed : 0,
-    ume_block : 1,
-    can_close : 0,
-    archive : "export_ready",
-    gui_debug : 3,
-    cdn : "https://pygame-web.github.io/archives/0.8/",
-    autorun : 0,
-    PYBUILD : "3.11"
-}
-
-</script>
-
-    <title>export_ready</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="viewport" content="height=device-height, initial-scale=1.0">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes"/>
-
-    <link rel="prefetch" href="https://pygame-web.github.io/archives/0.8/pythonrc.py">
-    <link rel="prefetch" href="https://pygame-web.github.io/archives/0.8/vt/xterm.js">
-    <link rel="prefetch" href="https://pygame-web.github.io/archives/0.8/vt/xterm-addon-image.js">
-    <link rel="prefetch" href="https://pygame-web.github.io/archives/0.8/vt/xterm-addon-image.js">
-
-
-    <link rel="icon" type="image/png" href="favicon.png" sizes="16x16">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>BungeeZoo</title>
     <style>
-        #status {
-            display: inline-block;
-            vertical-align: top;
-            margin-top: 20px;
-            margin-left: 30px;
-            font-weight: bold;
-            color: rgb(120, 120, 120);
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #000; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh;
+            overflow: hidden;
+            touch-action: none;
         }
-
-        #progress {
-            height: 20px;
-            width: 300px;
-        }
-
-        div.emscripten { text-align: center; }
-        div.emscripten_border { border: 1px solid black; }
-        div.thick_border { border: 4px solid black; }
-
-        /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
-        /* average size of droid screen 470dp x 320dp  */
-        canvas.emscripten {
-            border: 0px none;
-            background-color: transparent;
-            width: 100%;
-            height: 100%;
-            z-index: 5;
-
-            padding: 0;
-            margin: 0 auto;
-
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            right: 0;
-        }
-
-        body {
-            font-family: arial;
-            margin: 0;
-            padding: none;
-            background-color:powderblue;
-        }
-
-        .topright{
-           position:absolute;
-           top:0px;
-           right:0px;
-        }
-
-        .bottomright {
-            position:absolute;
-            top: 40%;
-            right: 0px;
-        }
-
-        .center {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .trinfo{
-           position:relative;
-           right:0px;
-           border: 1px solid black;
-        }
-
-        .framed{
-           position:relative;
-           top:150px;
-           right:10px;
-           border: 1px solid black;
+        canvas { 
+            max-width: 100%; 
+            max-height: 100vh;
+            cursor: pointer;
         }
     </style>
-
-    <script src="https://pygame-web.github.io/archives/0.8//browserfs.min.js"></script>
-
 </head>
-
 <body>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const WIDTH = 1280, HEIGHT = 720;
+canvas.width = WIDTH;
+canvas.height = HEIGHT;
 
-    <div id="transfer" align=center>
-<!--        <div class="spinner" id='spinner'></div> -->
-        <div class="emscripten" id="status">Downloading...</div>
-        <div class="emscripten">
-            <progress value="0" max="100" id="progress"></progress>
-        </div>
-    </div>
+// Colors
+const SKY_COLOR = '#87CEEB';
+const GRASS_COLOR = '#228B22';
+const ROPE_COLOR = '#8B4513';
 
+// Load images
+const imageNames = ['bear.png', 'bull.png', 'cow.png', 'fishbowl.png', 'milk-free.png', 'monkey.png', 'monkey2.png', 'rabbit.png'];
+const images = {};
+let loadedCount = 0;
 
-    <canvas class="emscripten" id="canvas"
-width="1px"
-height="1px"
-    oncontextmenu="event.preventDefault()" tabindex=1>
-    </canvas>
+imageNames.forEach(name => {
+    const img = new Image();
+    img.onload = () => {
+        loadedCount++;
+        if (loadedCount === imageNames.length) init();
+    };
+    img.onerror = () => {
+        // Create colored placeholder
+        const c = document.createElement('canvas');
+        c.width = 70; c.height = 70;
+        const cx = c.getContext('2d');
+        cx.fillStyle = `hsl(${Math.random()*360}, 70%, 60%)`;
+        cx.beginPath();
+        cx.arc(35, 35, 30, 0, Math.PI * 2);
+        cx.fill();
+        cx.fillStyle = '#000';
+        cx.font = '12px Arial';
+        cx.textAlign = 'center';
+        cx.fillText(name.split('.')[0], 35, 40);
+        images[name] = c;
+        loadedCount++;
+        if (loadedCount === imageNames.length) init();
+    };
+    img.src = 'images/' + name;
+    images[name] = img;
+});
 
-    <div id=html></div>
+// Physics
+function calculateBungeePhysics(y, vel, gravity, k, damping, restLength) {
+    let force = gravity;
+    const displacement = y - restLength;
+    if (displacement > 0) {
+        force += -k * displacement;
+    }
+    const newVel = (vel + force) * damping;
+    const newY = y + newVel;
+    return [newY, newVel];
+}
 
-    <div id=crt  class=bottomright >
-
-        <div id="system" hidden>
-            <div class="button-container">
-                <button id="aiostop" disabled>AIO ⏏︎</button>
-                <button id="aiopaused_true" disabled>AIO ■</button>
-                <button id="aiopaused_false" disabled>AIO ▶</button>
-                <button id="pygame_mixer_music_pause" disabled>Music ■</button>
-            </div>
-
-            <div class="button-container">
-                <div id=load_min>min</div>
-                <div id=load_avg>avg</div>
-                <div id=load_max>max</div>
-              <button id="load_rst" disabled>RESET</button>
-            </div>
-
-            <div id="level">(battery level unknown)</div>
-            <div id="stateBattery">(charging state unknown)</div>
-
-        </div>
-
-        <div id=box class="emscripten_border" hidden=true>
-
-            <div id="info" class="trinfo"></div>
-
-            <iframe id="iframe" class="framed" name="iframe"
-width="470px" height="90%"
-allowtransparency="true"
-style="z-index: 10; style="background: #FFFFFF;"
-frameborder="1"
-                allowfullscreen="true"
-                webkitallowfullscreen="true"
-                msallowfullscreen="true"
-                mozallowfullscreen="true"
-                sandbox="allow-same-origin allow-top-navigation allow-scripts allow-pointer-lock"
-                allow="autoplay; fullscreen *; geolocation; microphone; camera; midi; monetization; xr-spatial-tracking; gamepad; gyroscope; accelerometer; xr; cross-origin-isolated"
-                src="https://pygame-web.github.io/archives/0.8/empty.html"
-                scrolling="yes">
-            </iframe>
-        </div>
-
-    </div>
-
-
-    <div id="dlg" hidden>
-        <input type="file" id="dlg_multifile" multiple accept="image/*">
-        <label for="dlg_multifile">Select files</label>
-    </div>
-
-    <div id="pyconsole">
-        <div id="terminal" tabIndex=1 align="left"></div>
-    </div>
-
-    <script type="application/javascript">
-
-    async function custom_onload(debug_hidden) {
-        // this is called before anythinh python is loaded
-        // make your js customization here
-        console.log(__FILE__, "custom_onload")
-
-        pyconsole.hidden = debug_hidden
-        system.hidden = debug_hidden
-        transfer.hidden = debug_hidden
-        info.hidden = debug_hidden
-        box.hidden =  debug_hidden
+// Character class
+class Character {
+    constructor(imageName, xPos) {
+        this.imageName = imageName;
+        this.xPos = xPos;
+        this.screenHeight = HEIGHT;
+        this.randomizeRope();
+        this.respawn();
     }
 
-    function custom_prerun(){
-        // no python main and no (MEMFS + VFS) yet.
-        console.log(__FILE__, "custom_prerun")
-
+    randomizeRope() {
+        const minLen = this.screenHeight * 0.3;
+        const maxLen = this.screenHeight * 1.05;
+        this.restLength = minLen + Math.random() * (maxLen - minLen);
+        this.kStiffness = 0.03 + Math.random() * 0.02;
     }
 
-    function custom_postrun(){
-        // python main and no VFS filesystem yet.
-        console.log(__FILE__, "custom_postrun")
-
+    respawn() {
+        this.isSplatted = false;
+        this.yFloat = -100 - Math.random() * 500;
+        this.vel = 0;
+        this.wasFalling = true;
+        this.splatTimer = 0;
+        this.safetyTimer = 0;
+        this.lifeLimit = 300 + Math.random() * 200;
+        this.randomizeRope();
+        this.angle = 0;
     }
 
-    function debug() {
-        // allow to gain access to dev tools from js console
-        // but only on desktop. difficult to reach when in iframe
-        python.config.debug = true
-        custom_onload(false)
-        Module.PyRun_SimpleString("shell.uptime()")
-        window_resize()
+    update() {
+        const floorY = this.screenHeight - 50;
+
+        if (this.isSplatted) {
+            this.splatTimer++;
+            if (this.splatTimer > 60) this.respawn();
+            return;
+        }
+
+        this.safetyTimer++;
+        if (this.safetyTimer > this.lifeLimit) {
+            this.respawn();
+            return;
+        }
+
+        const GRAVITY = 0.5;
+        const DAMPING = 0.99;
+        [this.yFloat, this.vel] = calculateBungeePhysics(
+            this.yFloat, this.vel, GRAVITY, this.kStiffness, DAMPING, this.restLength
+        );
+
+        if (this.yFloat >= floorY) {
+            this.isSplatted = true;
+            this.vel = 0;
+            this.yFloat = floorY;
+            return;
+        }
+
+        // Rotation/swing
+        const swingIntensity = 15 + Math.abs(this.vel) * 2;
+        this.angle = Math.sin(Date.now() * 0.005 + this.xPos) * swingIntensity * Math.PI / 180;
     }
 
-    function info_inline(data){
-        document.getElementById("info").innerHTML = data
+    draw(ctx) {
+        const floorY = this.screenHeight - 50;
+
+        if (!this.isSplatted) {
+            // Draw rope
+            ctx.strokeStyle = ROPE_COLOR;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(this.xPos, 0);
+            
+            if (this.yFloat < this.restLength) {
+                // Wavy rope when not stretched
+                const midX = this.xPos + (Math.random() - 0.5) * 10;
+                const midY = this.yFloat / 2;
+                ctx.bezierCurveTo(midX - 10, midY, midX + 10, midY + 20, this.xPos, this.yFloat - 35);
+            } else {
+                ctx.lineTo(this.xPos, this.yFloat - 35);
+            }
+            ctx.stroke();
+        }
+
+        // Draw character
+        const img = images[this.imageName];
+        const size = 70;
+        
+        ctx.save();
+        if (this.isSplatted) {
+            // Draw splat
+            ctx.fillStyle = '#B00000';
+            ctx.beginPath();
+            ctx.ellipse(this.xPos, floorY + 10, 45, 20, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#DC0000';
+            ctx.beginPath();
+            ctx.ellipse(this.xPos, floorY + 5, 35, 22, 0, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            ctx.translate(this.xPos, this.yFloat);
+            ctx.rotate(this.angle);
+            if (img.complete || img.tagName === 'CANVAS') {
+                ctx.drawImage(img, -size/2, -size/2, size, size);
+            } else {
+                ctx.fillStyle = '#FFF';
+                ctx.beginPath();
+                ctx.arc(0, 0, size/2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.restore();
+    }
+}
+
+// Game state
+let characters = [];
+
+function init() {
+    const numChars = imageNames.length;
+    const padding = 40;
+    const step = (WIDTH - padding * 2) / (numChars - 1);
+
+    for (let i = 0; i < numChars; i++) {
+        const xPos = padding + i * step;
+        characters.push(new Character(imageNames[i], xPos));
     }
 
-    function info_online(url) {
-        // display info about current APK
-        fetch( url /*, options */)
-            .then((response) => response.text())
-            .then((html) => {
-                info_inline(html);
-        })
-        .catch((error) => {
-            console.warn(error);
-        });
-    }
+    // Input handlers
+    canvas.addEventListener('click', resetAll);
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); resetAll(); });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'r' || e.key === 'R') resetAll();
+    });
 
-    function frame_online(url) {
-        window.frames["iframe"].location = url;
-    }
+    requestAnimationFrame(gameLoop);
+}
 
-    </script>
+function resetAll() {
+    characters.forEach(c => c.respawn());
+}
 
+function gameLoop() {
+    // Update
+    characters.forEach(c => c.update());
+
+    // Draw
+    ctx.fillStyle = SKY_COLOR;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+    // Floor
+    ctx.fillStyle = GRASS_COLOR;
+    ctx.fillRect(0, HEIGHT - 50, WIDTH, 50);
+
+    // Characters
+    characters.forEach(c => c.draw(ctx));
+
+    // UI
+    ctx.fillStyle = '#FFF';
+    ctx.font = '24px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Tap to Reset', WIDTH / 2, 30);
+
+    requestAnimationFrame(gameLoop);
+}
+
+// Start loading
+if (loadedCount === imageNames.length) init();
+</script>
 </body>
 </html>
